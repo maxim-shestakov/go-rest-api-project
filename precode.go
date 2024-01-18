@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -39,14 +41,87 @@ var tasks = map[string]Task{
 	},
 }
 
-// Ниже напишите обработчики для каждого эндпоинта
-// ...
+// Обработчики для каждого эндпоинта
+func getAllTasks(w http.ResponseWriter, r *http.Request) {
+	resp, err := json.Marshal(tasks)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(resp)
+}
+
+func createTask(w http.ResponseWriter, r *http.Request) {
+	var task Task
+	var buf bytes.Buffer
+	_, err := buf.ReadFrom(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := json.Unmarshal(buf.Bytes(), &task); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	tasks[task.ID] = task
+	// Код в комментариях написал на случай, если потребуется
+	// возвращать после вызова метода мапу Tasks, по заданию не нужно
+	// resp, err := json.Marshal(tasks)
+	// if err != nil {
+	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+	// 	return
+	// }
+	//w.Header().Set("Content-Type", "application/json") //Закоментировал для использования только в случае наличия тела
+	w.WriteHeader(http.StatusCreated)
+	// w.Write(resp)
+}
+
+func getTask(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if _, exists := tasks[id]; !exists {
+		http.Error(w, "Задача отсутствует в мапе", http.StatusBadRequest)
+		return
+	}
+	resp, err := json.Marshal(tasks[id])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(resp)
+
+}
+
+func delTask(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if _, exists := tasks[id]; !exists {
+		http.Error(w, "Задача отсутствует в мапе", http.StatusBadRequest)
+		return
+	}
+	//Код в комментариях написал на случай, если потребуется
+	//возвращать после вызова метода мапу Tasks, по заданию не нужно
+	// resp, err := json.Marshal(tasks)
+	// if err != nil {
+	// 	http.Error(w, err.Error(), http.StatusBadRequest)
+	// 	return
+	// }
+	//w.Header().Set("Content-Type", "application/json")
+	//w.Write(resp)
+	delete(tasks, id)
+	w.WriteHeader(http.StatusOK)
+}
 
 func main() {
 	r := chi.NewRouter()
 
-	// здесь регистрируйте ваши обработчики
-	// ...
+	// Регистрация обработчиков
+	r.Get("/tasks", getAllTasks)
+	r.Post("/tasks", createTask)
+	r.Get("/tasks/{id}", getTask)
+	r.Delete("/tasks/{id}", delTask)
 
 	if err := http.ListenAndServe(":8080", r); err != nil {
 		fmt.Printf("Ошибка при запуске сервера: %s", err.Error())
