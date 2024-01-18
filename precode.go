@@ -53,7 +53,7 @@ func getAllTasks(w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
-func postTask(w http.ResponseWriter, r *http.Request) {
+func createTask(w http.ResponseWriter, r *http.Request) {
 	var task Task
 	var buf bytes.Buffer
 	_, err := buf.ReadFrom(r.Body)
@@ -70,48 +70,48 @@ func postTask(w http.ResponseWriter, r *http.Request) {
 	// возвращать после вызова метода мапу Tasks, по заданию не нужно
 	// resp, err := json.Marshal(tasks)
 	// if err != nil {
-	// 	http.Error(w, err.Error(), http.StatusBadRequest)
+	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
 	// 	return
 	// }
-	w.Header().Set("Content-Type", "application/json")
+	//w.Header().Set("Content-Type", "application/json") //Закоментировал для использования только в случае наличия тела
 	w.WriteHeader(http.StatusCreated)
 	// w.Write(resp)
 }
 
 func getTask(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	if _, exists := tasks[id]; exists {
-		resp, err := json.Marshal(tasks[id])
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write(resp)
+	if _, exists := tasks[id]; !exists {
+		http.Error(w, "Задача отсутствует в мапе", http.StatusBadRequest)
 		return
 	}
-	http.Error(w, "Задача отсутствует в мапе", http.StatusBadRequest)
+	resp, err := json.Marshal(tasks[id])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(resp)
+
 }
 
 func delTask(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	if _, exists := tasks[id]; exists {
-		delete(tasks, id)
-		//Код в комментариях написал на случай, если потребуется
-		//возвращать после вызова метода мапу Tasks, по заданию не нужно
-		// resp, err := json.Marshal(tasks)
-		// if err != nil {
-		// 	http.Error(w, err.Error(), http.StatusBadRequest)
-		// 	return
-		// }
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		//w.Write(resp)
+	if _, exists := tasks[id]; !exists {
+		http.Error(w, "Задача отсутствует в мапе", http.StatusBadRequest)
 		return
 	}
-	http.Error(w, "Задача отсутствует в мапе", http.StatusBadRequest)
-
+	//Код в комментариях написал на случай, если потребуется
+	//возвращать после вызова метода мапу Tasks, по заданию не нужно
+	// resp, err := json.Marshal(tasks)
+	// if err != nil {
+	// 	http.Error(w, err.Error(), http.StatusBadRequest)
+	// 	return
+	// }
+	//w.Header().Set("Content-Type", "application/json")
+	//w.Write(resp)
+	delete(tasks, id)
+	w.WriteHeader(http.StatusOK)
 }
 
 func main() {
@@ -119,12 +119,12 @@ func main() {
 
 	// Регистрация обработчиков
 	r.Get("/tasks", getAllTasks)
-	r.Post("/tasks", postTask)
+	r.Post("/tasks", createTask)
 	r.Get("/tasks/{id}", getTask)
 	r.Delete("/tasks/{id}", delTask)
 
 	if err := http.ListenAndServe(":8080", r); err != nil {
-		fmt.Printf("Ошибка при запуске сервера", err.Error())
+		fmt.Printf("Ошибка при запуске сервера: %s", err.Error())
 		return
 	}
 }
